@@ -1,0 +1,91 @@
+version: "3"
+services:
+  redis:
+    image: redis
+    restart: always
+    ports:
+      - "6380:6379"
+
+  authdb:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: users
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./data:/var/lib/postgresql/data
+
+  authdbmigration:
+    build: ../auth
+    depends_on:
+      - authdb
+      - redis
+    command: npx sequelize-cli db:migrate
+    environment:
+      DB_HOST: authdb
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: users
+      DB_PORT: 5432
+    
+  authserver:
+    build: ../auth
+    depends_on:
+      - authdb
+      - redis
+      - authdbmigration
+    ports:
+      - "5000:5000"
+    volumes:
+      - ../auth:/app
+    environment:
+      DB_HOST: authdb
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: users
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+  backenddb:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: cms
+    ports:
+      - "5434:5432"
+
+  backenddbmigration:
+    build: ../backend
+    depends_on:
+      - backenddb
+    command: npx sequelize-cli db:migrate
+    environment:
+      DB_HOST: backenddb
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: cms
+      DB_PORT: 5432
+
+  backend:
+    build: ../backend
+    depends_on:
+      - backenddb
+      - backenddbmigration
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../backend:/app
+    environment:
+      DB_HOST: backenddb
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: cms
+      DB_PORT: 5432
+
+
